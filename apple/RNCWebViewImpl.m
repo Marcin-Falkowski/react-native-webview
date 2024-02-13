@@ -17,11 +17,14 @@
 
 #import "objc/runtime.h"
 
+#import "GULReachabilityChecker.h"
+
 static NSTimer *keyboardTimer;
 static NSString *const HistoryShimName = @"ReactNativeHistoryShim";
 static NSString *const MessageHandlerName = @"ReactNativeWebView";
 static NSURLCredential* clientAuthenticationCredential;
 static NSDictionary* customCertificatesForHost;
+GULReachabilityChecker *grc;
 
 NSString *const CUSTOM_SELECTOR = @"_CUSTOM_SELECTOR_";
 
@@ -156,6 +159,8 @@ RCTAutoInsetsProtocol>
 - (instancetype)initWithFrame:(CGRect)frame
 {
   if ((self = [super initWithFrame:frame])) {
+    grc = [[GULReachabilityChecker alloc] initWithReachabilityDelegate:nil withHost:nil];
+      [grc start];
 #if !TARGET_OS_OSX
     super.backgroundColor = [UIColor clearColor];
 #else
@@ -273,6 +278,8 @@ RCTAutoInsetsProtocol>
 
 - (void)dealloc
 {
+  [grc stop];
+    grc = nil;
   [[NSNotificationCenter defaultCenter] removeObserver:self];
   if (@available(iOS 11.0, *)) {
     [self.webView.configuration.websiteDataStore.httpCookieStore removeObserver:self];
@@ -802,7 +809,14 @@ RCTAutoInsetsProtocol>
     [self writeCookiesToWebView:httpCookies completion:nil];
   }
 
-  NSURLRequest *request = [self requestForSource:_source];
+NSURLRequest *originalRequest = [self requestForSource:_source];
+    NSMutableURLRequest *mutableCopy = [originalRequest mutableCopy];
+    if((grc.reachabilityStatus == kGULReachabilityNotReachable) ||(grc.reachabilityStatus == kGULReachabilityUnknown )) {
+
+        mutableCopy.cachePolicy = NSURLRequestReturnCacheDataElseLoad;
+    }
+    NSURLRequest *request = mutableCopy;
+   //request.cachePolicy = NSURLRequestReturnCacheDataElseLoad;
   __weak WKWebView *webView = _webView;
   NSString *allowingReadAccessToURL = _allowingReadAccessToURL;
 
@@ -1255,7 +1269,13 @@ RCTAutoInsetsProtocol>
     });
 
     WKNavigationType navigationType = navigationAction.navigationType;
-    NSURLRequest *request = navigationAction.request;
+     NSURLRequest *originalRequest = navigationAction.request;
+  NSMutableURLRequest *mutableCopy = [originalRequest mutableCopy];
+    if((grc.reachabilityStatus == kGULReachabilityNotReachable) ||(grc.reachabilityStatus == kGULReachabilityUnknown )) {
+        mutableCopy.cachePolicy = NSURLRequestReturnCacheDataElseLoad;
+    }
+    NSURLRequest *request = mutableCopy;
+  //request.cachePolicy = NSURLRequestReturnCacheDataElseLoad;
     BOOL isTopFrame = [request.URL isEqual:request.mainDocumentURL];
     BOOL hasTargetFrame = navigationAction.targetFrame != nil;
 
@@ -1415,14 +1435,14 @@ RCTAutoInsetsProtocol>
       return;
     }
 
-    NSMutableDictionary<NSString *, id> *event = [self baseEvent];
-    [event addEntriesFromDictionary:@{
-      @"didFailProvisionalNavigation": @YES,
-      @"domain": error.domain,
-      @"code": @(error.code),
-      @"description": error.localizedDescription,
-    }];
-    _onLoadingError(event);
+  NSMutableDictionary<NSString *, id> *event = [self baseEvent];
+        [event addEntriesFromDictionary:@{
+          @"didFailProvisionalNavigation": @YES,
+          @"domain": error.domain,
+          @"code": @(error.code),
+          @"description": error.localizedDescription,
+        }];
+        _onLoadingError(event);
   }
 }
 
