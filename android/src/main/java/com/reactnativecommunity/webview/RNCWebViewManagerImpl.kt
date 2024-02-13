@@ -453,15 +453,8 @@ class RNCWebViewManagerImpl {
     }
 
     fun setCacheEnabled(viewWrapper: RNCWebViewWrapper, enabled: Boolean) {
-     if (enabled) {
-        val view = viewWrapper.webView
-        val ctx: Context? = view.context
-        ctx?.let {
-            view.settings.cacheMode = WebSettings.LOAD_DEFAULT
-        }
-    } else {
-        view.settings.cacheMode = WebSettings.LOAD_NO_CACHE
-    }
+      val view = viewWrapper.webView
+      view.settings.cacheMode = if (enabled) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_NO_CACHE
     }
 
     fun setIncognito(viewWrapper: RNCWebViewWrapper, enabled: Boolean) {
